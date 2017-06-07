@@ -56,7 +56,7 @@ syn match	shimVimline			contained	"\svim:\s.*$"
 syn region	shimTodo			contained	start=">\|NOTE\|TODO\|FIXME\|BUG\|(C)"	end="$"	contains=shimTodoKeyword
 
 " ShimTodoKeyword: Highlighted special keyword inside a comment
-"   shimTodoKeyword -> Todo (blue on yellow background)
+"   shimTodoKeyword -> Todo (yellow bg)
 syn keyword	shimTodoKeyword		contained	NOTE	TODO	FIXME	BUG
 
   
@@ -69,7 +69,7 @@ syn cluster shimControl			contains=shimFunction,shimSubshellOpen,shimBlock,shimI
 
 " |-> basic command names, variable assignments {{{1
 " ==================================================
-syn cluster	shimCommandPart		contains=shimSeparator,shimCaseSeparator,@shimRedirect,shimSubshellError,shimSubshellClose,@shimString
+syn cluster	shimCommandPart		contains=shimSeparator,shimCaseSeparator,@shimRedirect,shimSubshellOpen,shimSubshellClose,@shimString
 syn cluster	shimAssignmentValue	contains=shimAssignmentValueArray,shimAssignmentValueString
 
 " ShimCommand: 	Any regular command, function or builtin name
@@ -162,11 +162,9 @@ syn match	shimRedirSourceStream	contained	"[ \t\n|;&]\@<=[0-9]\+[<>]\@="
 "   shimRedirTargetStream -> Type (green)
 syn match	shimRedirTargetStream	contained	"\%([<>]&\s*\)\@<=\%(-\|[0-9]\+\)"
 
-" ShimRedirTargetProcess: cat <(ls)
-" A target process (command list) for process substitution
-"   braces       -> shimRedirOp -> Operator (yellow)
-"   command list -> ...
-syn region	shimRedirTargetProcess	contained	matchgroup=shimRedirOp	start="("	end=")"	extend	keepend		contains=@shimTop
+" ShimRedirTargetProcess: A command list / process for i/o file substitution.
+" Instead of modeling this behaviour separately, we handle it as regular
+" subshells
 
 
 " |-- strings, special characters {{{1 
@@ -209,14 +207,30 @@ syn region	shimDqString	contained	extend	matchgroup=shimQuote	start=+"+	end=+"+	
 
 " | |-> curly brace expansion {{{1 
 " ================================
+
+" ShimBraceExp: a curly brace expansion, such as echo {01..15}
+"   braces -> shimBraceExpOp -> Special (purple)
+"   values -> shimBraceExp   -> Constant (red)
 syn region	shimBraceExp	contained	matchgroup=shimBraceExpOp	start="{"	end="\s\@=\|}"	contains=@shimString,shimBraceExpOp	oneline
+
+" ShimBraceExpOp: An operator inside a curly brace expansion .. or ,
+"   shimBraceExpOp -> Special (purple)
 syn match	shimBraceExpOp	contained	"\.\.\|,"
 
 
 " | |-> patterns and path expansions {{{1
 " =======================================
+
+" ShimGlob: The Globbing * and ?
+"   shimGlob -> Identifier (cyan)
 syn match	shimGlob		contained	"\*\|?"
+
+" ShimHome: Tilde (~) as home directory shortcut, optionally with username
+"   shimHome -> Identifier (cyan)
 syn match	shimHome		contained	"\~[_a-z]*[0-9]\@!"
+
+" ShimCharOption: Multi-character option during path expansion
+"   shimCharOption -> Identifier (cyan)
 syn match	shimCharOption	contained	"\[.\+\]"	contains=@shimEscape
 
 
@@ -224,10 +238,12 @@ syn match	shimCharOption	contained	"\[.\+\]"	contains=@shimEscape
 " ====================================
 syn cluster	shimVarExp			contains=shimVarSimple,shimVarSpecial,shimVar
 
-" ShimVarSimple: Print a variable in place
+" ShimVarSimple: Quick variable expansion
+"   shimVarSimple  -> Type (green)
 syn match	shimVarSimple		contained	"\$[a-zA-Z0-9_]\+"
 
-" ShimVarSpecial: Print a special variable
+" ShimVarSpecial: Quick special variable expansion
+"   shimVarSpecial -> Type (green)
 syn match	shimVarSpecial		contained	"\$[-$#!@*?]"
  
 
@@ -236,33 +252,95 @@ syn match	shimVarSpecial		contained	"\$[-$#!@*?]"
 syn cluster shimVarModifier		contains=shimVarModCase,shimVarModRemove,shimVarModSearchReplace,shimVarModSubstr,shimVarModOption,shimVarArrayAccess
 syn cluster	shimVarName			contains=shimVarNameSimple,shimVarNameSpecial
 
-" ShimVar: Print a variable, possibly modified
-syn region	shimVar				contained	matchgroup=shimVarBraces	start="\${"	end="}"	contains=shimVarModAccess	extend	keepend
+" ShimVar: full variable expansion ${var...}
+"   Content  -> shimVar       -> Error (red bg)
+"   ${ and } -> shimVarBraces -> Type  (green)
+"
+" Can contain special modifiers for array access, case modification, etc.
+"
+" Uses the Error highlighting type to mark bad modifiers. A correct expansion
+" starts with the shimVarVarAccess modifier (see there for more info)
+syn region	shimVar				contained	matchgroup=shimVarBraces	start="\${"	end="}"	contains=shimVarAccessType	extend	keepend
 
-" ShimVarName: A variable name inside an expansion
+" ShimVarAccessType: Variable access type (normal, indirection, length)
+"   shimVarAccessType -> Operator (yellow)
+"
+" When writing the variable name directly, this is a zero-width match.
+" Otherwise ! stands for indirection and # for length access
+"
+" Followed by the variable name: shimVarName{Simple,Special}
+syn match	shimVarAccessType	contained	"\%(\${\)\@<=\%(\%(!\|##\@!\)[!}]\@!\)\?"	nextgroup=@shimVarName
+
+" ShimVarNameSimple: A variable name inside an expansion
+" ShimVarNameSpecial: A special variable name inside an expansion
+"   shimVarNameSimple  -> Type (green)
+"   shimVarNameSpecial -> Type (green)
+"
+" Both can be followed by modifiers
 syn match	shimVarNameSimple	contained	"[a-zA-Z0-9_]\+"		nextgroup=@shimVarModifier
 syn match	shimVarNameSpecial	contained	"[-$#!@*?]"				nextgroup=@shimVarModifier
 
-" ShimVarModAccess: Access Modifiers: ! for indirection, # for length access
-syn match	shimVarModAccess	contained	"\%(\${\)\@<=\%(\%(!\|##\@!\)[!}]\@!\)\?"	nextgroup=@shimVarName
+" ShimVarModCase: Case modification operators ^ ~ ,
+"   shimVarModCase -> shimVarModOp -> Operator (yellow)
+"
+" Operators: ^ Uppercase     ~ Switch case     , Lowercase
+"
+" When using the operator once, only the first letter is changed.
+" To change the whole string, use the operator twice.
+syn match	shimVarModCase			contained	"\([\^,~]\)\1\?"
 
-" ShimVarModCase: Case modification operator (^^ ,, ~~)
-syn match	shimVarModCase		contained	"\([\^,~]\)\1\?"
-
-" ShimVarModRemove: Remove substring operator (%% ##)
+" ShimVarModRemove: Remove substring operators % #
+"   operators      -> shimVarModOp     -> Operator (yellow)
+"   search pattern -> shimVarModRemove -> Normal
+"
+" Operators: # Remove from front    % Remove from back
+"
+" When using the operator once, the shortest match is removed (when using
+" glob-stars). To remove the longest match, use the operator twice.
 syn region	shimVarModRemove		contained	matchgroup=shimVarModOp	start="\([%#]\)\1\?"rs=e	end="}"	contains=@shimString
 
-" ShimVarModSearchReplace: Search and replace in a string (// /)
+" ShimVarModSearchReplace: Search and replace operator ${var/search/replace}
+"   delimiting slashes -> shimVarModOp            -> Operator (yellow)
+"   search string      -> shimVarModSearchReplace -> Normal
+"
+" By default, only the first match is replaced. To replace all matches, use
+" a second slash between variable and search string. Note that the search /
+" replace operator always uses the longest match.
+"
+" When the delimiter of search and replacement is missing, the replacement is
+" assumed to be an empty string.
 syn region	shimVarModSearchReplace	contained	matchgroup=shimVarModOp	start="//\?"rs=e		end="/"	contains=@shimString	nextgroup=shimVarModSrReplacement
+
+" ShimVarModSrReplacement: The replacement string
+"   replacement        -> shimVarModSrReplacement -> Normal
+"
+" Note that this matches everything until the closing curly braces
 syn match	shimVarModSrReplacement	contained	"\_.*"	contains=@shimString
 
-" ShimVarModSubstr: Print a substring
+" ShimVarModSubstr: An substring ${text:n} from position n to the end
+"   colon operator -> shimVarModOp     -> Operator (yellow)
+"   given position -> shimVarModSubstr -> Normal
+"
+" The given position is interpreted as mathematical expression (more below)
+" When a negative number (-n) is given, the last n characters are printed
 syn region	shimVarModSubstr		contained	matchgroup=shimVarModOp	start=":[-+?]\@!"	end=":\@="	contains=@shimInMathExpr	nextgroup=shimVarModSubstr
 
 " ShimVarModOption: Optional default, alternative, error values
-syn region	shimVarModOption		contained	matchgroup=shimVarModOp	start=":\?[-+?]"rs=e	end="}"	contains=@shimString
+"   operators    -> shimVarModOp     -> Operator (yellow)
+"   option value -> shimVarModOption -> Normal
+"
+" Operators:
+"   - Default:     Use the option value when $var is unset, otherwise $var
+"   = Assign:      Assign $var = option when $var is unset
+"   + Alternative: Use the option value when $var is set, otherwise ''
+"   ? Error:       Exit with option as error text when $var is unset
+"
+" With a preceding colon (:), empty strings are also considered unset
+syn region	shimVarModOption		contained	matchgroup=shimVarModOp	start=":\?[-+?=]"	end="}"	contains=@shimString
 
-" ShimVarArrayAccess: Array access operator
+" ShimVarArrayAccess: Brackets for array element access
+"   Brackets -> shimVarArrayOp     -> Operator (yellow)
+"   Index    -> shimVarArrayAccess -> Special (purple)
 syn region	shimVarArrayAccess		contained	matchgroup=shimVarArrayOp	start="\["	end="\]"	nextgroup=@shimVarModifier
 
   
@@ -330,10 +408,11 @@ syn keyword	shimRepeat			contained	while	do	done
 syn match	shimInvertResult	contained	"!\s\+"
 
 
-" ShimSubshellOpen: Open a subshell: can only be at the front of a command
+" ShimSubshellOpen: Open a subshell: can only be at the front of a command or
+" directly after a redirect character (process substitution)
 syn match	shimSubshellOpen	contained	"((\@!"	nextgroup=@shimTop
 " ShimSubshellClose: Close a subshell: can be anywhere in a command
-syn match	shimSubshellClose	contained	")\s*"	nextgroup=@shimTop
+syn match	shimSubshellClose	contained	")"
 
 
 " |-> variable iteration (for, switch) {{{1
@@ -379,13 +458,6 @@ syn match	shimCaseOption		contained	"|"
 syn match	shimCaseOpenPattern	contained	"("
 
 
-" Errors {{{1
-" ===========
-
-" ShimSubshellError: unescaped opening braces (bad subshell or function declaration)
-syn match	shimSubshellError	contained	"("
-
-
 " 1}}}
 
 " Set syntax and highlighting {{{1 
@@ -424,7 +496,7 @@ hi def link shimDqString			String
 hi def link shimGlob				Identifier
 hi def link shimHome				Identifier
 hi def link shimCharOption			Identifier
-hi def link shimBraceExp			String
+hi def link shimBraceExp			Constant
 hi def link shimBraceExpOp			Special
 
 " Redirections
@@ -437,11 +509,11 @@ hi def link shimVarSimple			Type
 hi def link shimVarSpecial			Type
 hi def link shimVarBraces			Type
 hi def link shimVar					Error
+hi def link shimVarAccessType		Operator
 hi def link shimVarNameSimple		Type
 hi def link shimVarNameSpecial		Type
 hi def link shimVarModOp			Operator
-hi def link	shimVarArrayOp			shimVarModOp
-hi def link shimVarModAccess		shimVarModOp
+hi def link shimVarArrayOp			shimVarModOp
 hi def link shimVarModCase			shimVarModOp
 hi def link shimVarModRemove		Normal
 hi def link shimVarModSearchReplace	Normal

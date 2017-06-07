@@ -70,6 +70,7 @@ echo ${dirty//DIRTY}	# Some nice string  PART  PART
 echo ${dirty%DIRTY*}	# Some nice string DIRTY PART
 echo ${dirty%%DIRTY*}	# Some nice string
 echo ${dirty: -20}	# Some nice string D
+echo ${dirty/"some } string"}
 
 # Subshells
 echo `echo '`'`
@@ -130,6 +131,6 @@ case a in
     # this is a comment
     (xuxzgrz|sgrll"any file")echo This is some text;;&
     # this is a comment
-    (skipthis|skipthat) ;;
+    (skipthis|skipthat) var_2=;;
     b*) echo a contains b ;;
 esac
