@@ -38,7 +38,7 @@ onelinefun () { echo true; false; }
 
 rm -i -- --myfile dir/*
 mycommand --target mytarget
-mycommand --target=mytarget|lolcat >>/dev/null 2>&1
+mycommand --target=$target|lolcat >>/dev/null 2>&1
 cat <(# )
 echo true) test.sh
 
@@ -47,9 +47,15 @@ echo true) test.sh
 #    STRINGS, EXPANSIONS   #
 ############################
 
+# Assignments
+
+str="Some string"; MY_ENVIRONMENT_VARIABLE=default make --debug;
+
 # Array
 array=( This is some Text )
-echo "Uppercase: echo ${array[3]^^}"
+# Index:  0   1   2   3
+echo "Uppercase: The fourth element is ${array[3]^^}" # Should be TEXT
+echo "Lowercase array: ${array[@],,}"
 
 ( string='my$va\$lue'; echo "String: \`$string'"; echo Length: ${#string} )
 
@@ -118,6 +124,7 @@ switch menu in start stop restart help; do
     break
 done
 
+a=b; echo $a;
 a="bash"
 case a in
     # this is a comment
