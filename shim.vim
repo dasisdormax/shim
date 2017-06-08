@@ -350,27 +350,38 @@ syn cluster	shimMathExpr			contains=shimMathExprDblBraces,shimMathExprBrackets
 syn cluster shimInMathExpr			contains=shimMathNum,shimMathBraces,shimMathVar,shimMathOp,@shimExpansion
 
 " ShimMathExprDblBraces: A mathematic expression $(( ... ))
+"   braces   -> shimMathExpr -> Statement (yellow)
 syn region	shimMathExprDblBraces	contained	matchgroup=shimMathExpr	start="\$(("	end="))"	contains=@shimInMathExpr	extend	keepend
 
 " ShimMathExprBrackets: $[ ... ], this is considered deprecated, however
+"   brackets -> shimMathExpr -> Statement (yellow)
 syn region	shimMathExprBrackets	contained	matchgroup=shimMathExpr	start="\$\["	end="\]"	contains=@shimInMathExpr	extend	keepend
 
 " ShimMathTest: A mathematic test (( ... ))
+"   braces   -> shimMathExpr -> Statement (yellow)
 syn region	shimMathTest			contained	matchgroup=shimMathExpr	start="(("	end="))"	contains=@shimInMathExpr	extend	keepend
 
 " ShimMathNum: An integer number
+"   shimMathNum -> Number (red)
 syn match	shimMathNum				contained	"[0-9]\+"
 
 " ShimMathBraces: Braces inside a math expression
-syn region	shimMathBraces			contained	matchgroup=shimMathBraces	start="("	end=")"	contains=@shimInMathExpr	extend	keepend
+"   shimMathBraces -> Identifier (cyan)
+syn region	shimMathBraces			contained	start="("	end=")"	contains=@shimInMathExpr	extend	keepend
 
-" ShimMathVar: A variable name
+" ShimMathVar: A variable name (without leading $)
+"   shimMathVar -> Type (green)
+"
+" can be followed by an array access operator
 syn match	shimMathVar				contained	"[_a-zA-Z][_a-zA-Z0-9]*"	nextgroup=shimMathArrayAccess
 
 " ShimMathArrayAccess: Accessing an array element
+"   brackets -> shimVarArrayOp      -> Operator (yellow)
+"   index    -> shimMathArrayAccess -> Special (purple)
 syn region	shimMathArrayAccess		contained	matchgroup=shimVarArrayOp	start="\["	end="\]"
 
 " ShimMathOp:  A mathematic operator
+"   shimMathOp -> Operator (yellow)
 syn match	shimMathOp				contained	"+\|-\|*\|/\|%\|="
 
 
@@ -379,9 +390,11 @@ syn match	shimMathOp				contained	"+\|-\|*\|/\|%\|="
 syn cluster	shimCmdSub			contains=shimCmdSubBacktick,shimCmdSubBraces
 
 " ShimCmdSubBacktick: command substitution in backticks
+"   backticks -> shimCmdSub -> Statement (yellow)
 syn region	shimCmdSubBacktick	contained	matchgroup=shimCmdSub	start="`"		end="`"	contains=@shimTop	extend	keepend
 
 " ShimCmdSubBraces:	command substitution in $( ... )
+"   braces    -> shimCmdSub -> Statement (yellow)
 syn region	shimCmdSubBraces	contained	matchgroup=shimCmdSub	start="\$((\@!"	end=")"	contains=@shimTop	extend	keepend
 
 
@@ -389,74 +402,131 @@ syn region	shimCmdSubBraces	contained	matchgroup=shimCmdSub	start="\$((\@!"	end=
 " =============================
 
 " ShimFunction: function declaration: funname () [block]
-" match pattern: 'funname ()' with variable whitespace inbetween
+"   braces  -> shimFunction     -> Type (green)
+"
+" matches the pattern: 'funname ()' with variable whitespace inbetween
+" the function name is highlighted specifically as shimFunctionName
 syn match	shimFunction		contained	"[^ \t()<>\\;]\+\s*(\s*)"	contains=shimFunctionName
-" ShimFunctionName: highlight the function name
-syn match	shimFunctionName	contained	"[^ \t()<>\\;]\+\s*"
 
-" ShimBlock: Curly braces, which combine multiple expressions into a block
-syn match	shimBlock			contained	"[\n\t ;|&]\@<=[{}][\n\t ;|&]"
+" ShimFunctionName: highlight the function name
+"   funname -> shimFunctionName -> Function (cyan)
+syn match	shimFunctionName	contained	"[^ \t()<>\\;]\+\s*"
 
 " ShimConditional: A keyword that triggers conditional execution. Must be at
 " the front of an expression and can (mostly) be followed by one.
+"   shimConditional   -> Conditional (yellow)
 syn keyword	shimConditional		contained	if	then	else	fi	
 
 " ShimRepeat: A keyword that causes commands to be executed repeatedly
+"   shimRepeat        -> Repeat (yellow)
 syn keyword	shimRepeat			contained	while	do	done
 
 " ShimInvertResult: The result-inverting ! operator
+"   shimInvertResult  -> Operator (yellow)
 syn match	shimInvertResult	contained	"!\s\+"
 
+" ShimBlock: Curly braces, which combine multiple expressions into a block
+"   shimBlock         -> shimSeparator -> Statement (yellow)
+syn match	shimBlock			contained	"[\n\t ;|&]\@<=[{}][\n\t ;|&]\@="
 
 " ShimSubshellOpen: Open a subshell: can only be at the front of a command or
 " directly after a redirect character (process substitution)
+"   shimSubshellOpen  -> shimSeparator -> Statement (yellow)
 syn match	shimSubshellOpen	contained	"((\@!"	nextgroup=@shimTop
+
 " ShimSubshellClose: Close a subshell: can be anywhere in a command
+"   shimSubshellClose -> shimSeparator -> Statement (yellow)
 syn match	shimSubshellClose	contained	")"
 
 
 " |-> variable iteration (for, switch) {{{1
 " =========================================
 
-" ShimFor: A for loop
+" ShimFor: A for loop, followed by either an iterator or a c-style loop
+"   shimFor    -> Repeat (yellow)
 syn match	shimFor				contained	"for\%(\s\+\|\%(((\)\@=\)"	nextgroup=shimForCStyle,shimIterator
 
 " ShimSwitch: A switch statement
+"   shimSwitch -> Statement (yellow)
 syn match	shimSwitch			contained	"switch\s\+"	nextgroup=shimIterator
 
 " ShimForCStyle: for (( init; break; step ))
+"   braces     -> shimForCStyleBraces -> Statement (yellow)
+"
+" the content is treated as mathematical statements
 syn region	shimForCStyle		contained	matchgroup=shimForCStyleBraces	start="(("	end="))"	contains=@shimInMathExpr	extend	keepend
 
-" ShimIterator: (for|switch)    var    in    1 2 3
+" ShimIterator: The iteration variable name (without $)
+"   varname -> shimIterator -> Type (green)
 syn match	shimIterator		contained	"[a-zA-Z_][a-zA-Z_0-9]*\s*"	nextgroup=shimIteratorList
 
-" ShimIteratorList: A list of strings to be iterated over - if omitted: $@
+" ShimIteratorList: The list of strings to be iterated over, started with 'in'
+"   'in' keyword -> shimIteratorIn   -> Keyword (yellow)
+"   string list  -> shimIteratorList -> Normal
+"
+" The list can be omitted, which will cause $@ to be used as the list
 syn region	shimIteratorList	contained	matchgroup=shimIteratorIn	start="in"	end="[\n;|&]"	contains=@shimString
 
 
 " |-> tests {{{1
 " ==============
 syn cluster	shimInTest			contains=@shimString,shimTestOp,shimTestControl
-syn region	shimTest			contained	matchgroup=shimTestBrackets	start="\[\[[\t\n (]"	end="[\t\n )]\]\]"	contains=@shimInTest	extend	keepend
-" Note: The old test does not go across line breaks, so no extend attribute
+
+" ShimTest: A test started with the double bracket operator
+"   brackets -> shimTestBrackets -> Operator (yellow)
+"   content  -> shimTest         -> Normal
+syn region	shimTest			contained	matchgroup=shimTestBrackets	start="\[\[[\t\n (]\@="	end="[\t\n )]\@<=\]\]"	contains=@shimInTest	extend	keepend
+
+" ShimOldTest: A test started with a single bracket
+"   brackets -> shimTestBrackets -> Operator (yellow)
+"   content  -> shimOldTest      -> Normal
+"
+" Note that the old test does not go across command boundaries (pipes,
+" logic operators, semicolon, newline), so no extend attribute
 syn region	shimOldTest			contained	matchgroup=shimTestBrackets	start="\[\s"			end="\%([();&|]\@=\|\]\)"	contains=@shimInTest	keepend
 
+" ShimTestOp: Operators in a test environment
+"   shimTestOp      -> Identifier (cyan)
 syn match	shimTestOp			contained	"[() \t\n]\@<=\%(-[a-zA-Z]\{1,2\}\|[<>!=]=\?\|=\~\)[() \t\n]\@="
+
+" ShimTestControl: Control operators in a test environment
+"   shimTestControl -> Identifier (cyan)
 syn match	shimTestControl		contained	"(\|)\|&&\|||\|![( \t\n]\@="
 
  
 " |-> case blocks {{{1
 " ====================
-syn cluster	shimCasePattern		contains=@shimString,shimCaseOption,shimCaseOpenPattern,shimComment
+syn cluster	shimCasePattern		contains=@shimString,shimCaseOption,shimCaseLabelStart,shimComment
+
+" ShimCase: A case statement: case var in ... esac
+"   'case' keyword     -> shimCase -> Conditional (yellow)
+"
+" followed by a string to check and the 'in' keyword
 syn match	shimCase			contained	"case\s\+"		nextgroup=shimCaseString
+
+" ShimCaseString: The string to check with the case statement
+"   string to check    -> shimCaseString -> Normal
 syn region	shimCaseString		contained	start="."	end="\_s\%(in\_s\+\)\@="	contains=@shimString	nextgroup=shimCaseIn	extend	keepend
 
-syn region	shimCaseIn			contained	matchgroup=shimCaseControl	start="in"	end="[;&)]\|\<esac\>"	contains=@shimCasePattern	extend keepend
-syn region	shimCaseSeparator	contained	matchgroup=shimCaseControl	start=";;&\?\|;&"	end="[;&)]\s*\|\<esac\>"	contains=@shimCasePattern	extend	keepend	nextgroup=@shimTop
+" ShimCaseIn: A pattern to match the case string with, started by 'in'
+"   'in' keyword       -> shimCaseControl   -> Keyword (yellow)
+"   pattern            -> shimCaseIn        -> Normal
+"   ending ) or esac   -> shimCaseLabelEnd  -> Label (yellow)
+syn region	shimCaseIn			contained	matchgroup=shimCaseControl	start="in"			matchgroup=shimCaseLabelEnd	end="[;&)]\|\<esac\>"		contains=@shimCasePattern	extend	keepend
 
+" ShimCaseSeparator: Case separators, up to and including the next pattern
+"   separators         -> shimCaseControl   -> Keyword (yellow)
+"   pattern            -> shimCaseSeparator -> Normal
+"   ending ) or esac   -> shimCaseLabelEnd  -> Label (yellow)
+syn region	shimCaseSeparator	contained	matchgroup=shimCaseControl	start=";;&\?\|;&"	matchgroup=shimCaseLabelEnd	end="[;&)]\s*\|\<esac\>"	contains=@shimCasePattern	extend	keepend	nextgroup=@shimTop
+
+" ShimCaseOption: The | operator to combine multiple patterns in a single case
+"   shimCaseOption     -> Operator (yellow)
 syn match	shimCaseOption		contained	"|"
-syn match	shimCaseOpenPattern	contained	"("
 
+" ShimCaseLabelStart: The optional ( to indicate the beginning of a pattern
+"   shimCaseLabelStart -> Label (yellow)
+syn match	shimCaseLabelStart	contained	"("
 
 " 1}}}
 
@@ -523,7 +593,7 @@ hi def link shimVarModOption		Normal
 hi def link shimVarArrayAccess		Special
 
 " Command substitution
-hi def link shimCmdSub				Keyword
+hi def link shimCmdSub				Statement
 
 " Math expressions
 hi def link shimMathOp				Operator
@@ -531,7 +601,7 @@ hi def link shimMathBraces			Identifier
 hi def link shimMathExpr			Statement
 hi def link shimMathVar				Type
 hi def link shimMathNum				Number
-hi def link	shimMathArrayAccess		Special
+hi def link shimMathArrayAccess		Special
 
 " Functions and Blocks
 hi def link shimFunction			Type
@@ -541,33 +611,31 @@ hi def link shimRepeat				Repeat
 hi def link shimBlock				shimSeparator
 hi def link shimSubshellOpen		shimSeparator
 hi def link shimSubshellClose		shimSeparator
-hi def link shimInvertResult		Statement
+hi def link shimInvertResult		Operator
 
 " Iterators
-hi def link	shimFor					Statement
+hi def link shimFor					Repeat
 hi def link shimSwitch				Statement
 hi def link shimForCStyleBraces		Statement
 hi def link shimIterator			Type
-hi def link	shimIteratorIn			Statement
-hi def link	shimIteratorList		Normal
+hi def link shimIteratorIn			Keyword
+hi def link shimIteratorList		Normal
 
 " Case
 
-hi def link shimCase				Statement
+hi def link shimCase				Conditional
 hi def link shimCaseString			Normal
-hi def link shimCaseControl			Statement
-hi def link shimCaseOption			Statement
-hi def link shimCaseOpenPattern		Statement
+hi def link shimCaseControl			Keyword
+hi def link shimCaseOption			Operator
+hi def link shimCaseLabelStart		Label
+hi def link shimCaseLabelEnd		Label
 
 " Tests
 hi def link shimTestBrackets		Statement
-hi def link shimTest				String
+hi def link shimTest				Normal
+hi def link shimOldTest				Normal
 hi def link shimTestOp				Identifier
 hi def link shimTestControl			Identifier
-
-" Errors
-hi def link shimSubshellError		Error
-hi def link shimDblTestError		Error
 
 " TODO: sync at function definitions instead of reading the whole file?
 syn sync fromstart
