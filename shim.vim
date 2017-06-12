@@ -60,16 +60,16 @@ syn region	shimTodo			contained	start=">\|NOTE\|TODO\|FIXME\|BUG\|(C)"	end="$"	c
 syn keyword	shimTodoKeyword		contained	NOTE	TODO	FIXME	BUG
 
   
-" Expressions {{{1 
+" Expressions {{{1
 " ================
 syn cluster	shimInExpression	contains=@shimControl,@shimBlock,shimAssignment,shimCommand,shimComment
 syn cluster shimBlock			contains=shimTest,shimOldTest,shimMathTest,shimFor,shimSwitch,shimCase,shimEsac
-syn cluster shimControl			contains=shimFunction,shimSubshellOpen,shimBlock,shimInvertResult,shimConditional,shimRepeat
+syn cluster shimControl			contains=shimFunction,shimSubshellOpen,shimRedirect,shimBlock,shimInvertResult,shimConditional,shimRepeat
 
 
 " |-> basic command names, variable assignments {{{1
 " ==================================================
-syn cluster	shimCommandPart		contains=shimSeparator,shimCaseSeparator,@shimRedirect,shimSubshellOpen,shimSubshellClose,@shimString
+syn cluster	shimCommandPart		contains=shimSeparator,shimCaseSeparator,shimRedirect,shimSubshellOpen,shimSubshellClose,@shimString
 syn cluster	shimAssignmentValue	contains=shimAssignmentValueArray,shimAssignmentValueString
 
 " ShimCommand: 	Any regular command, function or builtin name
@@ -146,25 +146,55 @@ syn match	shimSeparator	contained	"\([|&]\{1,2\}\|;[;&|]\@!\)\s*"	nextgroup=@shi
 
 " |-> redirects {{{1
 " ==================
-syn cluster	shimRedirect	contains=shimRedirSourceStream,shimRedirInOut
-syn cluster	shimRedirTarget	contains=shimRedirTargetStream,shimRedirTargetProcess,@shimCommandPart
+syn cluster	shimRedirLHS	contains=shimRedirLeftStream
+syn cluster	shimRedirRHS	contains=shimRedirRightStream,shimRedirFilename,@shimHeredoc
 
-" ShimRedirOutFile: Redirect a stream to a file: echo hello>file
-"   redirection character -> shimRedirOp    -> Operator (yellow)
-"   redirection target    -> shimRedirInOut -> Normal
-syn region	shimRedirInOut	contained	matchgroup=shimRedirOp	start="[<>]&\?\s*"	end="\s\@="	contains=@shimRedirTarget
+" ShimRedirect: Redirect operator, followed by the redirection target
+"   redirection character -> shimRedirect -> Operator (yellow)
+syn match	shimRedirect	contained	"<\@<![0-9]*\%(<\|>\+\)\s*"	contains=@shimRedirLHS	nextgroup=@shimRedirRHS	skipwhite
 
-" ShimRedirSourceStream: A redirection source (stream number in front of > and <)
-"   shimRedirSourceStream -> Type (green)
-syn match	shimRedirSourceStream	contained	"[ \t\n|;&]\@<=[0-9]\+[<>]\@="
+" ShimRedirLeftStream: A redirection source (stream number in front of > and <)
+"   shimRedirLeftStream   -> Type (green)
+syn match	shimRedirLeftStream		contained	"[^<>]\+[<>]\@="
 
-" ShimRedirTargetStream: A target stream for a redirect: >&1
-"   shimRedirTargetStream -> Type (green)
-syn match	shimRedirTargetStream	contained	"\%([<>]&\s*\)\@<=\%(-\|[0-9]\+\)"
+" ShimRedirRightStream: A target stream for a redirect: >&1
+"   shimRedirRightStream  -> Type (green)
+syn match	shimRedirRightStream	contained	"<\@<=&\s*\%(-\|[0-9]\+\)"
 
-" ShimRedirTargetProcess: A command list / process for i/o file substitution.
-" Instead of modeling this behaviour separately, we handle it as regular
-" subshells
+" ShimRedirFilename: The filename as target for the redirection
+syn region	shimRedirFilename		contained	start="[^&<>]"	end="\s\@="	contains=@shimCommandPart
+
+
+" |-> here documents {{{1
+" =======================
+syn cluster shimHeredoc			contains=shimHereString,shimHereDocument,shimHereDocumentNE,shimHereDocumentTab,shimHereDocumentTabNE
+
+" ShimHereString: A here string as input <<<"Input String"
+"   initiating <<< -> shimHereStringInitiator -> Statement (yellow)
+"   string         -> shimHereString          -> Normal
+syn region	shimHereString		contained	matchgroup=shimHereStringInitiator	start="<\@<=<<"	end="\s\@="	contains=@shimCommandPart
+
+" ShimHereDocument: A here document started by <<TAG
+"   initiating <<TAG -> shimHereDocTerminator -> Keyword (yellow)
+"   ending TAG       -> shimHereDocTerminator -> Keyword (yellow)
+"   commands / args until newline -> ...
+"
+" When putting a dash (-) in front of the tag, leading tabs are ignored in
+" the heredoc and in front of the terminator. Double-quote the tag to disable
+" expansions in the heredoc.
+syn region	shimHereDocument	contained	matchgroup=shimHereDocTerminator	start="<\@<=<\z([^" \t|&;()<>]\+\)"		end="^\z1$"	extend	keepend	contains=@shimCommandPart,shimHereDocText
+syn region	shimHereDocumentNE	contained	matchgroup=shimHereDocTerminator	start="<\@<=<\"\z([^"]\+\)\""	end="^\z1$"	extend	keepend	contains=@shimCommandPart,shimHereDocTextNE
+syn region	shimHereDocumentTab		contained	matchgroup=shimHereDocTerminator	start="<\@<=<-\z([^" \t|&;()<>]\+\)"		end="^\t*\z1$"	extend	keepend	contains=@shimCommandPart,shimHereDocText
+syn region	shimHereDocumentTabNE	contained	matchgroup=shimHereDocTerminator	start="<\@<=<-\"\z([^"]\+\)\""	end="^\t*\z1$"	extend	keepend	contains=@shimCommandPart,shimHereDocTextNE
+
+" ShimHereDocText: The text of a normal here document
+"   shimHereDocText   -> String (red)
+syn region	shimHereDocText		contained	start="^"	end="\%^$"	contains=@shimExpansionInStr
+
+" ShimHereDocTextNE: The text of a quoted here document, in which
+" no expansions are executed
+"   shimHereDocTextNE -> String (red)
+syn region	shimHereDocTextNE	contained	start="^"	end="\%^$"
 
 
 " |-- strings, special characters {{{1 
@@ -570,9 +600,16 @@ hi def link shimBraceExp			Constant
 hi def link shimBraceExpOp			Special
 
 " Redirections
-hi def link shimRedirOp				Operator
-hi def link shimRedirSourceStream	Type
-hi def link shimRedirTargetStream	Type
+hi def link shimRedirect			Operator
+hi def link shimRedirLeftStream		Type
+hi def link shimRedirRightStream	Type
+hi def link shimRedirFilename		Identifier
+
+" Here documents
+hi def link shimHereStringInitiator	Statement
+hi def link shimHereDocTerminator	Keyword
+hi def link shimHereDocText			String
+hi def link shimHereDocTextNE		String
 
 " Variables
 hi def link shimVarSimple			Type

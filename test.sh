@@ -1,5 +1,5 @@
 #!/bin/bash
-# vim: ft=shim
+# vim: ft=shim ts=4 noet
 # This is a test file for the SHIM syntax highlighting
 # (C) 2017 Maximilian Wende <dasisdormax@mailbox.org>
 # >>> Licensed under the MIT License
@@ -31,16 +31,58 @@ myfun ()
 {
 	sleep 2& fg; fun \x\txx
 	echo test\x\
-   		true
+		true
 } && myfun
 
 onelinefun () { echo true; false; }
 
 rm -i -- --myfile dir/*
 mycommand --target mytarget
-mycommand --target=$target|lolcat >>/dev/null 2>&1
+
+# Redirection
+mycommand --target-file=$target|lolcat >>/dev/null 2>&1
 cat <(# )
 echo true) test.sh
+
+cat foo.txt bar.txt > new.txt
+cat>new.txt foo.txt bar.txt
+echo;> new.txt cat foo.txt bar.txt
+
+##################
+# HERE DOCUMENTS #
+##################
+
+cat <<< Hello
+
+cat <<EOH
+This is a here
+				document
+EOH
+
+cat <<-"TAG"
+				Any tab character at the front of the line is
+	ignored.
+		TAG
+
+cat <<-EOF | lolcat;>/home/user/hello echo world;
+	this is my "text"
+	| what? $var_here $(this is my command)
+	EOF
+
+<<"hered0cend" cat | lolcat || echo "Error detected!";
+	this is my "text"
+	| what? $var_here $(this is my command)
+	hered0cend
+hered0cend
+
+# Nesting heredocs. Note that the correct order would be to
+# close TEXT1 first, then TEXT2. We cannot fix that, so use
+# the same delimiter for both heredocs
+cat <<TEXT1; <<TEXT2 cat; echo true;
+	this is a heredoc
+TEXT2
+	and more text
+TEXT1
 
 
 ############################
