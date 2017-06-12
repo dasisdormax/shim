@@ -76,8 +76,8 @@ cat <<-EOF | lolcat;>/home/user/hello echo world;
 hered0cend
 
 # Nesting heredocs. Note that the correct order would be to
-# close TEXT1 first, then TEXT2. We cannot fix that, so use
-# the same delimiter for both heredocs
+# close TEXT1 first, then TEXT2. We cannot fix that
+# Use the same delimiter for both heredocs as workaround
 cat <<TEXT1; <<TEXT2 cat; echo true;
 	this is a heredoc
 TEXT2
@@ -94,7 +94,8 @@ TEXT1
 str="Some string"; MY_ENVIRONMENT_VARIABLE=default make --debug;
 
 # Array
-array=( This is some Text )
+array=( This is
+	some Text )
 # Index:  0   1   2   3
 echo "Uppercase: The fourth element is ${array[3]^^}" # Should be TEXT
 echo "Lowercase array: ${array[@],,}"
@@ -126,8 +127,8 @@ ls # stuff)
 # Brace expansions
 echo {a,"b c"}	# Should be interpreted as brace expansion
 echo {a,b\ ,c}	# Same here
-echo {a,b ,c}	# Should be interpreted as literal BUG: both is not possible
-echo {a,b,"}"	# literal as well
+echo {a,b ,c}	# Should be interpreted as literal
+echo {a,b,"}"	# literal as well BUG: both is not possible
 echo 0.{0..9}{€,$}
 
 # Pathnames

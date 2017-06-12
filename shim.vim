@@ -24,63 +24,23 @@ syn case match
 
 " }}}1
 
-" Top-Level Regions {{{1
-" ======================
-syn cluster	shimTop										contains=shimComment,shimExpression
-
-" ShimComment: A comment that goes until the end of the current line.
-"   shimComment -> Comment (Blue)
-syn region	shimComment		start="#"		end="$"		contains=@shimInComment		extend	keepend
-
-" ShimExpression: An expression that goes until the end of the current line.
-"   shimExpression -> Normal
-syn region	shimExpression	start="[^ \t#]"	end="$"		contains=@shimInExpression	keepend
-
-
-"  }}}1
-
-" Comment contents (Todo, Shebang) {{{1
-" =====================================
-syn cluster	shimInComment		contains=shimTodo,shimShebang,shimVimline
-
-" ShimShebang: The program to execute this file with
-"   shimShebang -> PreProc (purple)
-syn region	shimShebang			contained	matchgroup=shimComment	start="\%^#!"	end="$"
-
-" ShimVimline: A vim preprocessor line
-"   shimVimline -> PreProc (purple)
-syn match	shimVimline			contained	"\svim:\s.*$"
-
-" ShimTodo: An area inside a comment that requires special attention
-"   shimTodo -> SpecialComment (purple)
-syn region	shimTodo			contained	start=">\|NOTE\|TODO\|FIXME\|BUG\|(C)"	end="$"	contains=shimTodoKeyword
-
-" ShimTodoKeyword: Highlighted special keyword inside a comment
-"   shimTodoKeyword -> Todo (yellow bg)
-syn keyword	shimTodoKeyword		contained	NOTE	TODO	FIXME	BUG
-
-  
-" Expressions {{{1
+" EXPRESSIONS {{{1
 " ================
-syn cluster	shimInExpression	contains=@shimControl,@shimBlock,shimAssignment,shimCommand,shimComment
+syn cluster	shimExpression		contains=@shimControl,@shimBlock,shimAssignment,shimCommand,shimComment
 syn cluster shimBlock			contains=shimTest,shimOldTest,shimMathTest,shimFor,shimSwitch,shimCase,shimEsac
-syn cluster shimControl			contains=shimFunction,shimSubshellOpen,shimRedirect,shimBlock,shimInvertResult,shimConditional,shimRepeat
+syn cluster shimControl			contains=shimFunction,shimSubshell,shimRedirect,shimBlock,shimInvertResult,shimConditional,shimRepeat,shimSeparator
 
 
 " |-> basic command names, variable assignments {{{1
 " ==================================================
-syn cluster	shimCommandPart		contains=shimSeparator,shimCaseSeparator,shimRedirect,shimSubshellOpen,shimSubshellClose,@shimString
+syn cluster	shimCommandPart		contains=shimSeparator,shimRedirect,shimSubshell,shimComment,@shimString
 syn cluster	shimAssignmentValue	contains=shimAssignmentValueArray,shimAssignmentValueString
 
-" ShimCommand: 	Any regular command, function or builtin name
-"   shimCommand -> Function (cyan)
-"
-" can be followed by one or more arguments
-"   example: `echo Hello World'
-"             ^^^^
-syn region	shimCommand			contained	start="\S"		end="\s\@="	contains=@shimCommandPart	nextgroup=@shimMixedArgument	skipwhite
+" ShimCommand: [TOP] Any regular command, function or builtin
+"   shimCommand -> Normal
+syn region	shimCommand			start="\S"		end="[;|&()]\@=\|$"	contains=@shimCommandPart,shimArgumentList	keepend
 
-" ShimAssignment: A variable assignment in the form VAR_NAME=value.
+" ShimAssignment: [TOP] A variable assignment in the form VAR_NAME=value.
 "   variable name -> shimAssignment   -> Type (Green)
 "   equals sign   -> shimAssignmentOp -> Operator (yellow)
 "   value  -> shimAssignmentValueString || shimAssignmentValueArray -> ...
@@ -91,12 +51,12 @@ syn region	shimCommand			contained	start="\S"		end="\s\@="	contains=@shimCommand
 "
 " To achieve that behaviour, this is a quasi top-level structure. A value may
 " or may not follow after the equals sign
-syn region	shimAssignment		contained	start="\i\+\%(+\?=\|\[\)\@="	matchgroup=shimAssignmentOp	end="[()&;| \n\t]\|+\?="	nextgroup=@shimAssignmentValue	contains=shimAssignmentArrayAccess
+syn region	shimAssignment	start="\i\+\%(+\?=\|\[\)\@="	matchgroup=shimAssignmentOp	end="[()&;| \n\t]\|+\?="	nextgroup=@shimAssignmentValue	contains=shimAssignmentArrayIndex
 
-" ShimAssignmentArrayAccess: Array element assignment var[5]=elementval
-"   brackets -> shimVarArrayOp -> Operator (yellow)
-"   index    -> shimAssignmentArrayAccess -> Special (purple)
-syn region	shimAssignmentArrayAccess	contained	matchgroup=shimVarArrayOp	start="\i\@<=\["	end="\]"	extend	keepend
+" ShimAssignmentArrayIndex: Array element assignment var[5]=elementval
+"   brackets -> shimVarArrayBrackets     -> Operator (yellow)
+"   index    -> shimAssignmentArrayIndex -> Special (purple)
+syn region	shimAssignmentArrayIndex	contained	matchgroup=shimVarArrayBrackets	start="\i\@<=\["	end="\]"	extend	keepend
 
 " ShimAssignmentValueString: A string value for an assignment
 " The value itself is not highlighted (contained string elements may be though)
@@ -105,43 +65,34 @@ syn region	shimAssignmentValueString	contained	start="=\@<=[^()&|; \t\n]"	end="[
 " ShimAssignmentValueArray: An array value for an assignment arr=(word1 word2 "value 3")
 "   braces -> shimVarArrayOp -> Operator (yellow)
 " The elements are not highlighted (contained string elements may be though)
-syn region	shimAssignmentValueArray	contained	matchgroup=shimVarArrayOp	start="=\@<=("	end="[);&|]"	contains=@shimString
+syn region	shimAssignmentValueArray	contained	matchgroup=shimVarArrayBrackets	start="=\@<=("	end="[);&|]"	contains=@shimString	extend
 
 
 " |-> arguments and command line flags {{{1
 " =========================================
-syn cluster shimMixedArgument	contains=shimFlag,shimFlagEnd,shimArgument,shimComment
-syn cluster shimBackArgument	contains=shimArgumentEnd,shimComment
+
+" ShimArgumentList: The argument list after the command name itself
+syn region	shimArgumentList	contained	start="\s"	end="$"		contains=@shimCommandPart,shimFlag,shimArgumentListEnd
 
 " ShimFlag:		A command line flag to the current command (starts with -)
-"   shimFlag      -> Normal
-"   shimFlagStart -> Identifier (cyan)
-syn region  shimFlag			contained	matchgroup=shimFlagStart	start="-\+"	end="\s\@="	contains=@shimCommandPart,shimFlagValue	nextgroup=@shimMixedArgument	skipwhite
+"   shimFlag       -> Identifier (blue)
+syn region  shimFlag			contained	matchgroup=shimFlagStart	start="\s\zs-\+"		end="\s\@="	contains=@shimCommandPart,shimFlagValue
+
+" ShimArgumentListEnd: Arguments that are never highlighted as flags
+syn region	shimArgumentListEnd	contained	matchgroup=shimFlagStart	start="\s\zs--\ze\s"	end="$"	contains=@shimCommandPart
 
 " ShimFlagValue: A value for a long argument, split by an equals sign
 "   shimFlagValue  -> Normal
 "   shimFlagEquals -> Operator (yellow)
 syn region	shimFlagValue		contained	matchgroup=shimFlagEquals	start="="	end="\s\@="	contains=@shimCommandPart
 
-" ShimFlagEnd:	"--", ends the parsing of flags further on
-"   shimFlagEnd  -> Identifier (cyan)
-syn match	shimFlagEnd			contained	"--\s\@="	nextgroup=@shimBackArgument	skipwhite
-
-" ShimArgument: A positional argument to a command
-"   shimArgument -> Normal
-syn region	shimArgument		contained	start="[^ \t#-]"	end="\s\@="	contains=@shimCommandPart	nextgroup=@shimMixedArgument	skipwhite
-
-" ShimArgumentEnd: A positional argument after "--"
-"   shimArgumentEnd -> Normal
-syn region	shimArgumentEnd		contained	start="[^ \t#]"		end="\s\@="	contains=@shimCommandPart	nextgroup=@shimBackArgument	skipwhite
-
  
 " |-> expression separators {{{1
 " ==============================
-" ShimSeparator: An expression delimiter:
+" ShimSeparator: Any expression separator:
 " semicolon, pipe, go to background, logic operators
 "   shimSeparator -> Statement
-syn match	shimSeparator	contained	"\([|&]\{1,2\}\|;[;&|]\@!\)\s*"	nextgroup=@shimTop
+syn match	shimSeparator	"[|&;]\+\s*"	nextgroup=@shimExpression
 
 
 " |-> redirects {{{1
@@ -151,7 +102,7 @@ syn cluster	shimRedirRHS	contains=shimRedirRightStream,shimRedirFilename,@shimHe
 
 " ShimRedirect: Redirect operator, followed by the redirection target
 "   redirection character -> shimRedirect -> Operator (yellow)
-syn match	shimRedirect	contained	"<\@<![0-9]*\%(<\|>\+\)\s*"	contains=@shimRedirLHS	nextgroup=@shimRedirRHS	skipwhite
+syn match	shimRedirect	"<\@<![0-9]*\%(<\|>\+\)\s*"	contains=@shimRedirLHS	nextgroup=@shimRedirRHS	skipwhite
 
 " ShimRedirLeftStream: A redirection source (stream number in front of > and <)
 "   shimRedirLeftStream   -> Type (green)
@@ -182,10 +133,10 @@ syn region	shimHereString		contained	matchgroup=shimHereStringInitiator	start="<
 " When putting a dash (-) in front of the tag, leading tabs are ignored in
 " the heredoc and in front of the terminator. Double-quote the tag to disable
 " expansions in the heredoc.
-syn region	shimHereDocument	contained	matchgroup=shimHereDocTerminator	start="<\@<=<\z([^" \t|&;()<>]\+\)"		end="^\z1$"	extend	keepend	contains=@shimCommandPart,shimHereDocText
-syn region	shimHereDocumentNE	contained	matchgroup=shimHereDocTerminator	start="<\@<=<\"\z([^"]\+\)\""	end="^\z1$"	extend	keepend	contains=@shimCommandPart,shimHereDocTextNE
-syn region	shimHereDocumentTab		contained	matchgroup=shimHereDocTerminator	start="<\@<=<-\z([^" \t|&;()<>]\+\)"		end="^\t*\z1$"	extend	keepend	contains=@shimCommandPart,shimHereDocText
-syn region	shimHereDocumentTabNE	contained	matchgroup=shimHereDocTerminator	start="<\@<=<-\"\z([^"]\+\)\""	end="^\t*\z1$"	extend	keepend	contains=@shimCommandPart,shimHereDocTextNE
+syn region	shimHereDocument		contained	matchgroup=shimHereDocTerminator	start="<\@<=<\z([^" \t|&;()<>]\+\)"		end="^\z1$"		extend	keepend	contains=@shimCommandPart,shimHereDocText
+syn region	shimHereDocumentNE		contained	matchgroup=shimHereDocTerminator	start="<\@<=<\"\z([^"]\+\)\""			end="^\z1$"		extend	keepend	contains=@shimCommandPart,shimHereDocTextNE
+syn region	shimHereDocumentTab		contained	matchgroup=shimHereDocTerminator	start="<\@<=<-\z([^" \t|&;()<>]\+\)"	end="^\t*\z1$"	extend	keepend	contains=@shimCommandPart,shimHereDocText
+syn region	shimHereDocumentTabNE	contained	matchgroup=shimHereDocTerminator	start="<\@<=<-\"\z([^"]\+\)\""			end="^\t*\z1$"	extend	keepend	contains=@shimCommandPart,shimHereDocTextNE
 
 " ShimHereDocText: The text of a normal here document
 "   shimHereDocText   -> String (red)
@@ -241,7 +192,7 @@ syn region	shimDqString	contained	extend	matchgroup=shimQuote	start=+"+	end=+"+	
 " ShimBraceExp: a curly brace expansion, such as echo {01..15}
 "   braces -> shimBraceExpOp -> Special (purple)
 "   values -> shimBraceExp   -> Constant (red)
-syn region	shimBraceExp	contained	matchgroup=shimBraceExpOp	start="{"	end="\s\@=\|}"	contains=@shimString,shimBraceExpOp	oneline
+syn region	shimBraceExp	contained	matchgroup=shimBraceExpBraces	start="{"	end="\s\@=\|}"	contains=@shimString,shimBraceExpOp	oneline
 
 " ShimBraceExpOp: An operator inside a curly brace expansion .. or ,
 "   shimBraceExpOp -> Special (purple)
@@ -252,16 +203,20 @@ syn match	shimBraceExpOp	contained	"\.\.\|,"
 " =======================================
 
 " ShimGlob: The Globbing * and ?
-"   shimGlob -> Identifier (cyan)
-syn match	shimGlob		contained	"\*\|?"
+"   shimGlob         -> Type (green)
+syn match	shimGlob			contained	"\*\|?"
 
 " ShimHome: Tilde (~) as home directory shortcut, optionally with username
-"   shimHome -> Identifier (cyan)
-syn match	shimHome		contained	"\~[_a-z]*[0-9]\@!"
+"   shimHome         -> Type (green)
+syn match	shimHome			contained	"\~\w*[0-9]\@!"	contains=shimHomeUsername
+
+" ShimHomeUsername: An optional username, whose home directory is expanded
+"   shimHomeUsername -> Special (purple)
+syn match	shimHomeUsername	contained	"\w\+"
 
 " ShimCharOption: Multi-character option during path expansion
-"   shimCharOption -> Identifier (cyan)
-syn match	shimCharOption	contained	"\[.\+\]"	contains=@shimEscape
+"   shimCharOption   -> Type (green)
+syn region	shimCharOption		contained	matchgroup=shimCharOptionBrackets	start="\[" end="\]"	oneline	contains=@shimEscape
 
 
 " | |-> quick variable expansions {{{1
@@ -270,16 +225,20 @@ syn cluster	shimVarExp			contains=shimVarSimple,shimVarSpecial,shimVar
 
 " ShimVarSimple: Quick variable expansion
 "   shimVarSimple  -> Type (green)
-syn match	shimVarSimple		contained	"\$[a-zA-Z0-9_]\+"
+syn match	shimVarSimple		contained	"\$[a-zA-Z0-9_]\+"	contains=shimVarSign
 
 " ShimVarSpecial: Quick special variable expansion
 "   shimVarSpecial -> Type (green)
-syn match	shimVarSpecial		contained	"\$[-$#!@*?]"
+syn match	shimVarSpecial		contained	"\$[-$#!@*?]"		contains=shimVarSign
+
+" ShimVarSign: The $-sign in front of the variable name
+"   shimVarSign    -> Type (green)
+syn match	shimVarSign			contained	"\$"
  
 
 " | |-> full variable expansions {{{1
 " ===================================
-syn cluster shimVarModifier		contains=shimVarModCase,shimVarModRemove,shimVarModSearchReplace,shimVarModSubstr,shimVarModOption,shimVarArrayAccess
+syn cluster shimVarModifier		contains=shimVarModCase,shimVarModRemove,shimVarModSearchReplace,shimVarModSubstr,shimVarModOption,shimVarArrayIndex
 syn cluster	shimVarName			contains=shimVarNameSimple,shimVarNameSpecial
 
 " ShimVar: full variable expansion ${var...}
@@ -289,7 +248,7 @@ syn cluster	shimVarName			contains=shimVarNameSimple,shimVarNameSpecial
 " Can contain special modifiers for array access, case modification, etc.
 "
 " Uses the Error highlighting type to mark bad modifiers. A correct expansion
-" starts with the shimVarVarAccess modifier (see there for more info)
+" starts with the shimVarAccessType modifier (see there for more info)
 syn region	shimVar				contained	matchgroup=shimVarBraces	start="\${"	end="}"	contains=shimVarAccessType	extend	keepend
 
 " ShimVarAccessType: Variable access type (normal, indirection, length)
@@ -368,10 +327,10 @@ syn region	shimVarModSubstr		contained	matchgroup=shimVarModOp	start=":[-+?]\@!"
 " With a preceding colon (:), empty strings are also considered unset
 syn region	shimVarModOption		contained	matchgroup=shimVarModOp	start=":\?[-+?=]"	end="}"	contains=@shimString
 
-" ShimVarArrayAccess: Brackets for array element access
-"   Brackets -> shimVarArrayOp     -> Operator (yellow)
-"   Index    -> shimVarArrayAccess -> Special (purple)
-syn region	shimVarArrayAccess		contained	matchgroup=shimVarArrayOp	start="\["	end="\]"	nextgroup=@shimVarModifier
+" ShimVarArrayIndex: array element access by index
+"   Brackets -> shimVarArrayBrackets -> Operator (yellow)
+"   Index    -> shimVarArrayIndex    -> Normal
+syn region	shimVarArrayIndex		contained	matchgroup=shimVarArrayBrackets	start="\["	end="\]"	nextgroup=@shimVarModifier
 
   
 " | |-> mathematic expressions {{{1
@@ -389,7 +348,7 @@ syn region	shimMathExprBrackets	contained	matchgroup=shimMathExpr	start="\$\["	e
 
 " ShimMathTest: A mathematic test (( ... ))
 "   braces   -> shimMathExpr -> Statement (yellow)
-syn region	shimMathTest			contained	matchgroup=shimMathExpr	start="(("	end="))"	contains=@shimInMathExpr	extend	keepend
+syn region	shimMathTest			matchgroup=shimMathExpr	start="(("	end="))"	contains=@shimInMathExpr	extend	keepend
 
 " ShimMathNum: An integer number
 "   shimMathNum -> Number (red)
@@ -403,12 +362,12 @@ syn region	shimMathBraces			contained	start="("	end=")"	contains=@shimInMathExpr
 "   shimMathVar -> Type (green)
 "
 " can be followed by an array access operator
-syn match	shimMathVar				contained	"[_a-zA-Z][_a-zA-Z0-9]*"	nextgroup=shimMathArrayAccess
+syn match	shimMathVar				contained	"[_a-zA-Z][_a-zA-Z0-9]*"	nextgroup=shimMathArrayIndex
 
-" ShimMathArrayAccess: Accessing an array element
-"   brackets -> shimVarArrayOp      -> Operator (yellow)
-"   index    -> shimMathArrayAccess -> Special (purple)
-syn region	shimMathArrayAccess		contained	matchgroup=shimVarArrayOp	start="\["	end="\]"
+" ShimMathArrayIndex: Accessing an array element by index
+"   brackets -> shimVarArrayBrackets -> Operator (yellow)
+"   index    -> shimMathArrayIndex   -> Special (purple)
+syn region	shimMathArrayIndex		contained	matchgroup=shimVarArrayBrackets	start="\["	end="\]"
 
 " ShimMathOp:  A mathematic operator
 "   shimMathOp -> Operator (yellow)
@@ -421,11 +380,11 @@ syn cluster	shimCmdSub			contains=shimCmdSubBacktick,shimCmdSubBraces
 
 " ShimCmdSubBacktick: command substitution in backticks
 "   backticks -> shimCmdSub -> Statement (yellow)
-syn region	shimCmdSubBacktick	contained	matchgroup=shimCmdSub	start="`"		end="`"	contains=@shimTop	extend	keepend
+syn region	shimCmdSubBacktick	contained	matchgroup=shimCmdSub	start="`"		end="`"	contains=@shimExpression	extend	keepend
 
 " ShimCmdSubBraces:	command substitution in $( ... )
 "   braces    -> shimCmdSub -> Statement (yellow)
-syn region	shimCmdSubBraces	contained	matchgroup=shimCmdSub	start="\$((\@!"	end=")"	contains=@shimTop	extend	keepend
+syn region	shimCmdSubBraces	contained	matchgroup=shimCmdSub	start="\$((\@!"	end=")"	contains=@shimExpression	extend	keepend
 
 
 " |-> functions and blocks {{{1 
@@ -436,7 +395,7 @@ syn region	shimCmdSubBraces	contained	matchgroup=shimCmdSub	start="\$((\@!"	end=
 "
 " matches the pattern: 'funname ()' with variable whitespace inbetween
 " the function name is highlighted specifically as shimFunctionName
-syn match	shimFunction		contained	"[^ \t()<>\\;]\+\s*(\s*)"	contains=shimFunctionName
+syn match	shimFunction		"[^ \t()<>\\;]\+\s*(\s*)"	contains=shimFunctionName
 
 " ShimFunctionName: highlight the function name
 "   funname -> shimFunctionName -> Function (cyan)
@@ -445,28 +404,23 @@ syn match	shimFunctionName	contained	"[^ \t()<>\\;]\+\s*"
 " ShimConditional: A keyword that triggers conditional execution. Must be at
 " the front of an expression and can (mostly) be followed by one.
 "   shimConditional   -> Conditional (yellow)
-syn keyword	shimConditional		contained	if	then	else	fi	
+syn keyword	shimConditional		if	then	else	fi
 
 " ShimRepeat: A keyword that causes commands to be executed repeatedly
 "   shimRepeat        -> Repeat (yellow)
-syn keyword	shimRepeat			contained	while	do	done
+syn keyword	shimRepeat			while	do	done
 
 " ShimInvertResult: The result-inverting ! operator
 "   shimInvertResult  -> Operator (yellow)
-syn match	shimInvertResult	contained	"!\s\+"
+syn match	shimInvertResult	"!\s\+"
 
 " ShimBlock: Curly braces, which combine multiple expressions into a block
 "   shimBlock         -> shimSeparator -> Statement (yellow)
-syn match	shimBlock			contained	"[\n\t ;|&]\@<=[{}][\n\t ;|&]\@="
+syn match	shimBlock			"[{}][\n\t ;|&()]\@="
 
-" ShimSubshellOpen: Open a subshell: can only be at the front of a command or
-" directly after a redirect character (process substitution)
-"   shimSubshellOpen  -> shimSeparator -> Statement (yellow)
-syn match	shimSubshellOpen	contained	"((\@!"	nextgroup=@shimTop
-
-" ShimSubshellClose: Close a subshell: can be anywhere in a command
-"   shimSubshellClose -> shimSeparator -> Statement (yellow)
-syn match	shimSubshellClose	contained	")"
+" ShimSubshell: Open or close a subshell:
+"   shimSubshell      -> shimSeparator -> Statement (yellow)
+syn match	shimSubshell		"((\@!\|)"
 
 
 " |-> variable iteration (for, switch) {{{1
@@ -474,11 +428,11 @@ syn match	shimSubshellClose	contained	")"
 
 " ShimFor: A for loop, followed by either an iterator or a c-style loop
 "   shimFor    -> Repeat (yellow)
-syn match	shimFor				contained	"for\%(\s\+\|\%(((\)\@=\)"	nextgroup=shimForCStyle,shimIterator
+syn match	shimFor				"for\%(\s\+\|\%(((\)\@=\)"	nextgroup=shimForCStyle,shimIterator
 
 " ShimSwitch: A switch statement
 "   shimSwitch -> Statement (yellow)
-syn match	shimSwitch			contained	"switch\s\+"	nextgroup=shimIterator
+syn match	shimSwitch			"switch\s\+"	nextgroup=shimIterator
 
 " ShimForCStyle: for (( init; break; step ))
 "   braces     -> shimForCStyleBraces -> Statement (yellow)
@@ -500,12 +454,12 @@ syn region	shimIteratorList	contained	matchgroup=shimIteratorIn	start="in"	end="
 
 " |-> tests {{{1
 " ==============
-syn cluster	shimInTest			contains=@shimString,shimTestOp,shimTestControl
+syn cluster	shimInTest		contains=@shimString,shimTestOperator,shimTestControl
 
 " ShimTest: A test started with the double bracket operator
 "   brackets -> shimTestBrackets -> Operator (yellow)
 "   content  -> shimTest         -> Normal
-syn region	shimTest			contained	matchgroup=shimTestBrackets	start="\[\[[\t\n (]\@="	end="[\t\n )]\@<=\]\]"	contains=@shimInTest	extend	keepend
+syn region	shimTest		matchgroup=shimTestBrackets	start="\[\[[\t\n (]\@="	end="[\t\n )]\@<=\]\]"	contains=@shimInTest	extend	keepend
 
 " ShimOldTest: A test started with a single bracket
 "   brackets -> shimTestBrackets -> Operator (yellow)
@@ -513,15 +467,15 @@ syn region	shimTest			contained	matchgroup=shimTestBrackets	start="\[\[[\t\n (]\
 "
 " Note that the old test does not go across command boundaries (pipes,
 " logic operators, semicolon, newline), so no extend attribute
-syn region	shimOldTest			contained	matchgroup=shimTestBrackets	start="\[\s"			end="\%([();&|]\@=\|\]\)"	contains=@shimInTest	keepend
+syn region	shimOldTest		matchgroup=shimTestBrackets	start="\[\s"			end="\%([\n();&|]\@=\|\]\)"	contains=@shimInTest	keepend
 
-" ShimTestOp: Operators in a test environment
-"   shimTestOp      -> Identifier (cyan)
-syn match	shimTestOp			contained	"[() \t\n]\@<=\%(-[a-zA-Z]\{1,2\}\|[<>!=]=\?\|=\~\)[() \t\n]\@="
+" ShimTestOperator: Operators in a test environment
+"   shimTestOperator -> Special (purple)
+syn match	shimTestOperator	contained	"[() \t\n]\@<=\%(-[a-zA-Z]\{1,2\}\|[<>!=]=\?\|=\~\)[() \t\n]\@=\|||\|&&"
 
 " ShimTestControl: Control operators in a test environment
-"   shimTestControl -> Identifier (cyan)
-syn match	shimTestControl		contained	"(\|)\|&&\|||\|![( \t\n]\@="
+"   shimTestControl  -> Operator (yellow)
+syn match	shimTestControl		contained	"(\|)\|![( \t\n]\@="
 
  
 " |-> case blocks {{{1
@@ -532,33 +486,45 @@ syn cluster	shimCasePattern		contains=@shimString,shimCaseOption,shimCaseLabelSt
 "   'case' keyword     -> shimCase -> Conditional (yellow)
 "
 " followed by a string to check and the 'in' keyword
-syn match	shimCase			contained	"case\s\+"		nextgroup=shimCaseString
+syn keyword	shimCase			case		nextgroup=shimCaseString	skipwhite
 
 " ShimCaseString: The string to check with the case statement
 "   string to check    -> shimCaseString -> Normal
-syn region	shimCaseString		contained	start="."	end="\_s\%(in\_s\+\)\@="	contains=@shimString	nextgroup=shimCaseIn	extend	keepend
+syn region	shimCaseString		contained	start="."	matchgroup=shimCaseIn	end="\_s\@<=in\_s\@="	contains=@shimString
 
-" ShimCaseIn: A pattern to match the case string with, started by 'in'
-"   'in' keyword       -> shimCaseControl   -> Keyword (yellow)
-"   pattern            -> shimCaseIn        -> Normal
-"   ending ) or esac   -> shimCaseLabelEnd  -> Label (yellow)
-syn region	shimCaseIn			contained	matchgroup=shimCaseControl	start="in"			matchgroup=shimCaseLabelEnd	end="[;&)]\|\<esac\>"		contains=@shimCasePattern	extend	keepend
+" ShimEsac: The esac keyword, terminating a case block
+syn keyword	shimEsac			esac
 
-" ShimCaseSeparator: Case separators, up to and including the next pattern
-"   separators         -> shimCaseControl   -> Keyword (yellow)
-"   pattern            -> shimCaseSeparator -> Normal
-"   ending ) or esac   -> shimCaseLabelEnd  -> Label (yellow)
-syn region	shimCaseSeparator	contained	matchgroup=shimCaseControl	start=";;&\?\|;&"	matchgroup=shimCaseLabelEnd	end="[;&)]\s*\|\<esac\>"	contains=@shimCasePattern	extend	keepend	nextgroup=@shimTop
 
-" ShimCaseOption: The | operator to combine multiple patterns in a single case
-"   shimCaseOption     -> Operator (yellow)
-syn match	shimCaseOption		contained	"|"
+" }}}1
 
-" ShimCaseLabelStart: The optional ( to indicate the beginning of a pattern
-"   shimCaseLabelStart -> Label (yellow)
-syn match	shimCaseLabelStart	contained	"("
+" COMMENTS {{{1
+" =============
+syn cluster	shimInComment	contains=shimTodo,shimShebang,shimVimline
 
-" 1}}}
+" ShimComment: A comment that goes until the end of the current line.
+"   shimComment -> Comment (Blue)
+syn region	shimComment		start="#"		end="$"		contains=@shimInComment		extend	keepend
+
+" ShimShebang: The program to execute this file with
+"   shimShebang -> PreProc (purple)
+syn region	shimShebang		contained	matchgroup=shimComment	start="\%^#!"	end="$"
+
+" ShimVimline: A vim preprocessor line
+"   shimVimline -> PreProc (purple)
+syn match	shimVimline		contained	"\svim:\s.*$"
+
+" ShimTodo: An area inside a comment that requires special attention
+"   shimTodo -> SpecialComment (purple)
+syn region	shimTodo		contained	start=">\|NOTE\|TODO\|FIXME\|BUG\|(C)"	end="$"	contains=shimTodoKeyword
+
+" ShimTodoKeyword: Highlighted special keyword inside a comment
+"   shimTodoKeyword -> Todo (yellow bg)
+syn keyword	shimTodoKeyword	contained	NOTE	TODO	FIXME	BUG
+
+
+" }}}1
+
 
 " Set syntax and highlighting {{{1 
 " ================================
@@ -571,19 +537,19 @@ hi def link shimTodo				SpecialComment
 hi def link shimTodoKeyword			Todo
 
 " Basic Expressions
-hi def link shimExpression			Normal
 hi def link shimSeparator			Statement
 hi def link shimCommand				Function
+hi def link shimArgumentList		Normal
+hi def link shimArgumentListEnd		Normal
 hi def link shimAssignment			Type
-hi def link shimAssignmentArrayAccess	Special
+hi def link shimAssignmentArrayIndex	shimVarArrayIndex
 hi def link shimAssignmentOp		Operator
 
 " Arguments and Flags
-hi def link shimFlag				Normal
-hi def link shimFlagStart			Identifier
+hi def link shimFlag				Special
+hi def link shimFlagStart			Special
 hi def link shimFlagValue			Normal
 hi def link shimFlagEquals			Operator
-hi def link shimFlagEnd				Identifier
 
 " Strings
 hi def link shimEscape				SpecialChar
@@ -593,17 +559,20 @@ hi def link shimQuote				Special
 hi def link shimSqString			String
 hi def link shimDqString			String
 
-hi def link shimGlob				Identifier
-hi def link shimHome				Identifier
-hi def link shimCharOption			Identifier
-hi def link shimBraceExp			Constant
-hi def link shimBraceExpOp			Special
+hi def link shimGlob				Type
+hi def link shimHome				Type
+hi def link shimCharOptionBrackets	Type
+hi def link shimBraceExpBraces		Type
+hi def link shimHomeUsername		Special
+hi def link shimCharOption			Special
+hi def link shimBraceExp			Special
+hi def link shimBraceExpOp			Operator
 
 " Redirections
 hi def link shimRedirect			Operator
 hi def link shimRedirLeftStream		Type
 hi def link shimRedirRightStream	Type
-hi def link shimRedirFilename		Identifier
+hi def link shimRedirFilename		Special
 
 " Here documents
 hi def link shimHereStringInitiator	Statement
@@ -612,22 +581,23 @@ hi def link shimHereDocText			String
 hi def link shimHereDocTextNE		String
 
 " Variables
+hi def link shimVarSign				Statement
 hi def link shimVarSimple			Type
 hi def link shimVarSpecial			Type
-hi def link shimVarBraces			Type
+hi def link shimVarBraces			shimVarSign
 hi def link shimVar					Error
-hi def link shimVarAccessType		Operator
-hi def link shimVarNameSimple		Type
-hi def link shimVarNameSpecial		Type
+hi def link shimVarNameSimple		shimVarSimple
+hi def link shimVarNameSpecial		shimVarSpecial
+hi def link shimVarArrayBrackets	Identifier
+hi def link shimVarArrayIndex		Normal
 hi def link shimVarModOp			Operator
-hi def link shimVarArrayOp			shimVarModOp
-hi def link shimVarModCase			shimVarModOp
+hi def link shimVarAccessType		shimVarModOp
+hi def link shimVarModCase			Identifier
 hi def link shimVarModRemove		Normal
 hi def link shimVarModSearchReplace	Normal
 hi def link shimVarModSrReplacement	Normal
 hi def link shimVarModSubstr		Normal
 hi def link shimVarModOption		Normal
-hi def link shimVarArrayAccess		Special
 
 " Command substitution
 hi def link shimCmdSub				Statement
@@ -638,7 +608,7 @@ hi def link shimMathBraces			Identifier
 hi def link shimMathExpr			Statement
 hi def link shimMathVar				Type
 hi def link shimMathNum				Number
-hi def link shimMathArrayAccess		Special
+hi def link shimMathArrayIndex		shimVarArrayIndex
 
 " Functions and Blocks
 hi def link shimFunction			Type
@@ -646,8 +616,7 @@ hi def link shimFunctionName		Function
 hi def link shimConditional			Conditional
 hi def link shimRepeat				Repeat
 hi def link shimBlock				shimSeparator
-hi def link shimSubshellOpen		shimSeparator
-hi def link shimSubshellClose		shimSeparator
+hi def link shimSubshell			shimSeparator
 hi def link shimInvertResult		Operator
 
 " Iterators
@@ -661,18 +630,16 @@ hi def link shimIteratorList		Normal
 " Case
 
 hi def link shimCase				Conditional
+hi def link shimEsac				Conditional
 hi def link shimCaseString			Normal
-hi def link shimCaseControl			Keyword
-hi def link shimCaseOption			Operator
-hi def link shimCaseLabelStart		Label
-hi def link shimCaseLabelEnd		Label
+hi def link shimCaseIn				Keyword
 
 " Tests
 hi def link shimTestBrackets		Statement
 hi def link shimTest				Normal
 hi def link shimOldTest				Normal
-hi def link shimTestOp				Identifier
-hi def link shimTestControl			Identifier
+hi def link shimTestOperator		Special
+hi def link shimTestControl			Operator
 
 " TODO: sync at function definitions instead of reading the whole file?
 syn sync fromstart
