@@ -34,7 +34,7 @@ myfun ()
 		true
 } && myfun
 
-onelinefun () { echo true; false; }
+onelinefun () { echo true; false; return 5; }
 
 rm -i -- --myfile dir/*
 mycommand --target mytarget
@@ -96,6 +96,7 @@ str="Some string"; MY_ENVIRONMENT_VARIABLE=default make --debug;
 # Array
 array=( This is
 	some Text )
+array=( )
 # Index:  0   1   2   3
 echo "Uppercase: The fourth element is ${array[3]^^}" # Should be TEXT
 echo "Lowercase array: ${array[@],,}"
@@ -177,3 +178,10 @@ case a in
     (skipthis|skipthat) var_2=;;
     b*) echo a contains b ;;
 esac
+
+###############
+#  BUILTINS   #
+###############
+declare -u var=value;
+declare -a array=( 1 2 3 4 )
+read -p "Enter your target! " TARGET; >functions.declare declare -f -p;
