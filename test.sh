@@ -1,5 +1,5 @@
 #!/bin/bash
-# vim: ft=shim ts=4 noet
+# vim: ts=4 noet
 # This is a test file for the SHIM syntax highlighting
 # (C) 2017 Maximilian Wende <dasisdormax@mailbox.org>
 # >>> Licensed under the MIT License

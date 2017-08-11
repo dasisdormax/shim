@@ -28,12 +28,12 @@ syn case match
 " ================
 syn cluster	shimExpression		contains=@shimControl,@shimBlock,@shimBuiltin,shimAssignment,shimCommand,shimComment
 syn cluster shimBlock			contains=shimTest,shimOldTest,shimMathTest,shimFor,shimSwitch,shimCase,shimEsac
-syn cluster shimControl			contains=shimFunction,shimSubshell,shimRedirect,shimBlock,shimInvertResult,shimConditional,shimRepeat,shimSeparator
+syn cluster shimControl			contains=shimFunction,shimSubshell,shimRedirStart,shimBlock,shimInvertResult,shimConditional,shimRepeat,shimSeparator
 
 
 " |-> basic commands {{{1
 " =======================
-syn cluster	shimCommandPart		contains=shimSeparator,shimRedirect,shimSubshell,@shimStringList
+syn cluster	shimCommandPart		contains=shimSeparator,shimRedirStart,shimSubshell,@shimStringList
 
 " ShimCommand: [TOP] Any regular command, function or builtin
 "   shimCommand         -> Function (cyan)
@@ -139,35 +139,34 @@ syn region	shimAssignmentValueArray	contained	matchgroup=shimVarArrayBrackets	st
 
 " |-> redirects {{{1
 " ==================
-syn cluster	shimRedirLHS	contains=shimRedirLeftStream
-syn cluster	shimRedirRHS	contains=shimRedirRightStream,shimRedirFilename,shimComment,@shimHeredoc
+syn cluster shimRedirect		contains=shimRedirDefault,@shimHereDoc
 
-" ShimRedirect: Redirect operator, followed by the redirection target
-"   redirection character -> shimRedirect -> Operator (yellow)
-syn match	shimRedirect	"<\@<![0-9]*\%(<\|>\+\)\s*"	contains=@shimRedirLHS	nextgroup=@shimRedirRHS
+" ShimRedirStart: Start of a redirect, optionally containing a stream number
+syn match	shimRedirStart		"[0-9]*\ze[<>]"	nextgroup=@shimRedirect
 
-" ShimRedirLeftStream: A redirection source (stream number in front of > and <)
-"   shimRedirLeftStream   -> Type (green)
-syn match	shimRedirLeftStream		contained	"[^<>]\+[<>]\@="
+" ShimRedirDefault: A redirect from or to a file or stream
+syn region	shimRedirDefault	start="\%(<<\@!\|>\{1,2\}\)"	end="&\?\s*"	nextgroup=shimRedirTarget	extend
+"
+" ShimRedirTarget: The redirection target
+"   shimRedirTarget  -> Constant (red)
+syn region	shimRedirTarget		contained	start=""	end="\s\@="	contains=@shimCommandPart
 
-" ShimRedirRightStream: A target stream for a redirect: >&1
-"   shimRedirRightStream  -> Type (green)
-syn match	shimRedirRightStream	contained	"<\@<=&\s*\%(-\|[0-9]\+\)"
-
-" ShimRedirFilename: The filename as target for the redirection
-syn region	shimRedirFilename		contained	start="[^&<>]"	end="\s\@="	contains=@shimCommandPart
 
 
 " |-> here documents {{{1
 " =======================
-syn cluster shimHeredoc			contains=shimHereString,shimHereDocument,shimHereDocumentNE,shimHereDocumentTab,shimHereDocumentTabNE
+syn cluster shimHereDoc			contains=shimHereString,shimHereDocStart,shimHereDocStartTab
 
 " ShimHereString: A here string as input <<<"Input String"
 "   initiating <<< -> shimHereStringInitiator -> Statement (yellow)
 "   string         -> shimHereString          -> Normal
-syn region	shimHereString		contained	matchgroup=shimHereStringInitiator	start="<\@<=<<"	end="\s\@="	contains=@shimCommandPart
+syn region	shimHereString		contained	matchgroup=shimHereStringInitiator	start="<<<\s*"	end="\_s\@="	contains=@shimCommandPart
 
-" ShimHereDocument: A here document started by <<TAG
+" ShimHereDocStart: The leading "<<" that starts a heredoc
+syn match	shimHereDocStart	contained	"<<\s*<\@!"	nextgroup=shimHereDocSq,shimHereDocDq
+syn match	shimHereDocStartTab	contained	"<<-\s*"	nextgroup=shimHereDocSqTab,shimHereDocDqTab
+
+" ShimHereDoc: A here document started by <<TAG
 "   initiating <<TAG -> shimHereDocTerminator -> Keyword (yellow)
 "   ending TAG       -> shimHereDocTerminator -> Keyword (yellow)
 "   commands / args until newline -> ...
@@ -175,19 +174,20 @@ syn region	shimHereString		contained	matchgroup=shimHereStringInitiator	start="<
 " When putting a dash (-) in front of the tag, leading tabs are ignored in
 " the heredoc and in front of the terminator. Double-quote the tag to disable
 " expansions in the heredoc.
-syn region	shimHereDocument		contained	matchgroup=shimHereDocTerminator	start="<\@<=<\z([^" \t|&;()<>]\+\)"		end="^\z1$"		extend	keepend	contains=@shimCommandPart,shimHereDocText
-syn region	shimHereDocumentNE		contained	matchgroup=shimHereDocTerminator	start="<\@<=<\"\z([^"]\+\)\""			end="^\z1$"		extend	keepend	contains=@shimCommandPart,shimHereDocTextNE
-syn region	shimHereDocumentTab		contained	matchgroup=shimHereDocTerminator	start="<\@<=<-\z([^" \t|&;()<>]\+\)"	end="^\t*\z1$"	extend	keepend	contains=@shimCommandPart,shimHereDocText
-syn region	shimHereDocumentTabNE	contained	matchgroup=shimHereDocTerminator	start="<\@<=<-\"\z([^"]\+\)\""			end="^\t*\z1$"	extend	keepend	contains=@shimCommandPart,shimHereDocTextNE
+syn region	shimHereDocSq		contained	matchgroup=shimHereDocSqTerminator	start='"\z([^"]\+\)"'			end="^\z1$"		extend	keepend	contains=@shimCommandPart,shimHereDocSqText
+syn region	shimHereDocDq		contained	matchgroup=shimHereDocDqTerminator	start='\z([^" \t|&;()<>]\+\)'	end="^\z1$"		extend	keepend	contains=@shimCommandPart,shimHereDocDqText
+syn region	shimHereDocSqTab	contained	matchgroup=shimHereDocSqTerminator	start='"\z([^"]\+\)"'			end="^\t*\z1$"	extend	keepend	contains=@shimCommandPart,shimHereDocSqText
+syn region	shimHereDocDqTab	contained	matchgroup=shimHereDocDqTerminator	start='\z([^" \t|&;()<>]\+\)'	end="^\t*\z1$"	extend	keepend	contains=@shimCommandPart,shimHereDocDqText
 
-" ShimHereDocText: The text of a normal here document
-"   shimHereDocText   -> String (red)
-syn region	shimHereDocText		contained	start="^"	end="\%^$"	contains=@shimExpansionInStr
+" ShimHereDocSqText: The text of a here document, in which expansions are
+" ignored just as in single-quoted strings
+"   shimHereDocSqText   -> shimSqString
+syn region	shimHereDocSqText	contained	start="^"	end="\%^$"
 
-" ShimHereDocTextNE: The text of a quoted here document, in which
-" no expansions are executed
-"   shimHereDocTextNE -> String (red)
-syn region	shimHereDocTextNE	contained	start="^"	end="\%^$"
+" ShimHereDocDqText: The text of a here document, expansions are handled like
+" in a double-quoted string.
+"   shimHereDocDqText   -> shimDqString
+syn region	shimHereDocDqText	contained	start="^"	end="\%^$"	contains=@shimExpansionInStr
 
 
 " |-- strings, special characters {{{1 
@@ -220,13 +220,13 @@ syn match	shimEscapeNewl	contained	extend	"\\\n"
 " ShimSqString: A string in single quotes, everything is taken literally
 "   shimSqString -> String (red)
 "   shimQuote    -> Special (purple)
-syn region	shimSqString	contained	extend	matchgroup=shimQuote	start=+'+	end=+'+
+syn region	shimSqString	contained	extend	matchgroup=shimQuote	start=+'+	end=+'+	transparent	contains=NONE
 
 " ShimDqString: A string in double quotes
 " Can contain escaped characters and variable expansions
 "   shimDqString -> String (red)
 "   shimQuote    -> Special (purple)
-syn region	shimDqString	contained	extend	matchgroup=shimQuote	start=+"+	end=+"+	contains=@shimInDqString
+syn region	shimDqString	contained	extend	matchgroup=shimQuote	start=+"+	end=+"+	transparent	contains=@shimInDqString
 
 
 " | |-> curly brace expansion {{{1 
@@ -268,15 +268,15 @@ syn cluster	shimVarExp			contains=shimVarSimple,shimVarSpecial,shimVar
 
 " ShimVarSimple: Quick variable expansion
 "   shimVarSimple  -> Type (green)
-syn match	shimVarSimple		contained	"\$[a-zA-Z0-9_]\+"	contains=shimVarSign
+syn match	shimVarSimple		contained	"\$[a-zA-Z0-9_]\+"	contains=shimVarDollar
 
 " ShimVarSpecial: Quick special variable expansion
 "   shimVarSpecial -> Type (green)
-syn match	shimVarSpecial		contained	"\$[-$#!@*?]"		contains=shimVarSign
+syn match	shimVarSpecial		contained	"\$[-$#!@*?]"		contains=shimVarDollar
 
-" ShimVarSign: The $-sign in front of the variable name
-"   shimVarSign    -> Type (green)
-syn match	shimVarSign			contained	"\$"
+" ShimVarDollar: The $-sign in front of the variable name
+"   shimVarDollar    -> Type (green)
+syn match	shimVarDollar		contained	"\$"
  
 
 " | |-> full variable expansions {{{1
@@ -403,7 +403,7 @@ syn match	shimMathNum				contained	"[0-9]\+"
 
 " ShimMathSeparator: separating commas in a math expression
 "   shimMathSeparator -> Operator (yellow)
-syn match	shimMathSeparator		contained	"[,;]"
+syn match	shimMathSeparator		contained	"[,;&|]"
 
 " ShimMathBraces: Braces indicating a mathematical sub-expression
 "   shimMathBraces -> Special (purple)
@@ -422,7 +422,7 @@ syn region	shimMathArrayIndex		contained	matchgroup=shimVarArrayBrackets	start="
 
 " ShimMathOp:  A mathematic operator
 "   shimMathOp -> Identifier
-syn match	shimMathOp				contained	"[-+*/%=><&|]"
+syn match	shimMathOp				contained	"[-+*/%#=><]"
 
 
 " | |-> command substitutions {{{1
@@ -640,7 +640,7 @@ hi def link shimArgumentList		Normal
 hi def link shimArgumentListEnd		Normal
 hi def link shimAssignment			Type
 hi def link shimAssignmentArrayIndex	shimVarArrayIndex
-hi def link shimAssignmentOp		Operator
+hi def link shimAssignmentOp		SpecialChar
 
 " Arguments and Flags
 hi def link shimFlag				Special
@@ -651,45 +651,47 @@ hi def link shimFlagEquals			Operator
 " Strings
 hi def link shimEscape				SpecialChar
 hi def link shimEscapeVar			SpecialChar
-hi def link shimEscapeNewl			Statement
-hi def link shimQuote				Special
-hi def link shimSqString			String
-hi def link shimDqString			String
+hi def link shimEscapeNewl			SpecialChar
+hi def link shimSqString			Normal
+hi def link shimDqString			Normal
+hi def link shimQuote				SpecialChar
 
 hi def link shimGlob				Type
-hi def link shimHome				Type
+hi def link shimHome				String
 hi def link shimCharOptionBrackets	Type
 hi def link shimBraceExpBraces		Type
-hi def link shimHomeUsername		Special
-hi def link shimCharOption			Special
-hi def link shimBraceExp			Special
+hi def link shimHomeUsername		String
+hi def link shimCharOption			String
+hi def link shimBraceExp			String
 hi def link shimBraceExpOp			Operator
 
 " Redirections
-hi def link shimRedirect			Operator
-hi def link shimRedirLeftStream		Type
-hi def link shimRedirRightStream	Type
-hi def link shimRedirFilename		Special
+hi def link shimRedirStart			Type
+hi def link shimRedirDefault		Operator
+hi def link shimRedirTarget			Constant
 
 " Here documents
-hi def link shimHereStringInitiator	Statement
-hi def link shimHereDocTerminator	Keyword
-hi def link shimHereDocText			String
-hi def link shimHereDocTextNE		String
+hi def link shimHereStringInitiator	shimRedirDefault
+hi def link shimHereDocStart		shimRedirDefault
+hi def link shimHereDocStartTab		shimRedirDefault
+hi def link shimHereDocSqTerminator	shimQuote
+hi def link shimHereDocDqTerminator	shimQuote
+hi def link shimHereDocDqText		shimDqString
+hi def link shimHereDocSqText		shimSqString
 
-" Variables
-hi def link shimVarSign				Statement
-hi def link shimVarSimple			Type
-hi def link shimVarSpecial			Type
-hi def link shimVarBraces			shimVarSign
+" Variable Expansions
+hi def link shimVarDollar			Identifier
+hi def link shimVarSimple			Identifier
+hi def link shimVarSpecial			Identifier
+hi def link shimVarBraces			Constant
 hi def link shimVar					Error
 hi def link shimVarNameSimple		shimVarSimple
 hi def link shimVarNameSpecial		shimVarSpecial
-hi def link shimVarArrayBrackets	Identifier
+hi def link shimVarArrayBrackets	SpecialChar
 hi def link shimVarArrayIndex		Normal
 hi def link shimVarModOp			Operator
-hi def link shimVarAccessType		shimVarModOp
-hi def link shimVarModCase			Identifier
+hi def link shimVarAccessType		Type
+hi def link shimVarModCase			Operator
 hi def link shimVarModRemove		Normal
 hi def link shimVarModSearchReplace	Normal
 hi def link shimVarModSrReplacement	Normal
@@ -700,12 +702,14 @@ hi def link shimVarModOption		Normal
 hi def link shimCmdSub				Statement
 
 " Math expressions
-hi def link shimMathOp				Identifier
-hi def link shimMathBraces			Operator
-hi def link shimMathSeparator		Normal
-hi def link shimMathExpr			Statement
-hi def link shimMathVar				Type
-hi def link shimMathNum				Number
+hi def link shimMathExprDblBraces	Normal
+hi def link shimMathExprBrackets	Normal
+hi def link shimMathExpr			Constant
+hi def link shimMathSeparator		Constant
+hi def link shimMathVar				shimVarNameSimple
+hi def link shimMathOp				Operator
+hi def link shimMathBraces			Statement
+hi def link shimMathNum				Normal
 hi def link shimMathArrayIndex		shimVarArrayIndex
 
 " Functions and Blocks

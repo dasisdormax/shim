@@ -2,11 +2,17 @@
 
 An alternative shell syntax highlighting file for VIM
 
-SHIM's philosophy: **Highlight correct code correctly!** I do not care if bad code is lighlighted as if it was good, but I do not want to rewrite my code just to please the highlighter.
+SHIM's philosophy: **Highlight correct code correctly!** The highlighter should adapt to the code, not the other way around!
 
 
 
-## Motivation
+## How to use
+
+Download the file shim.vim and copy it to `~/.vim/syntax/sh.vim`. Any shell files you open should now use SHIM's highlighting.
+
+
+
+## History / Motivation
 
 My bash scripts broke VIM's internal bash highlighting ¯\\_(ツ)_/¯
 
@@ -21,7 +27,19 @@ print_text () { cat <<-EOF; }
 EOF
 ```
 
-As I learned VIM syntax highlighting, I soon found out that we cannot model this correctly. So I chose to make a 'dumb' highlighter instead that had almost no idea of your code structure, just highlighting instead of interpreting syntax elements/blocks.
+As making the highlighter 'understand' these constructs looked impossible to me, I chose to make a 'dumb' highlighter instead.
+
+
+
+## Issues
+
+While the highlighter works fine with my code, I cannot ensure that for everyone. If you find a problem, just send me an example.
+
+Particularly the following areas are challenging and/or cannot be correctly implemented:
+- Escaped spaces `\ `
+- Command substitution using backticks `\``, especially when nested
+
+
 
 ## Special thanks
 
