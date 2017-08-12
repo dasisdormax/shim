@@ -43,6 +43,9 @@ exit 0 # We do not really want to execute the rest of this script
 echo "Hello World";# return
 echo ; echo; echo;
 
+VER=$(uname -r)
+echo ${VER//4/four}
+
 myfun ()
 {
 	sleep 2& fg; fun \x\txx

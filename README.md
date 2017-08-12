@@ -8,7 +8,7 @@ SHIM's philosophy: **Highlight correct code correctly!** The highlighter should 
 
 ## How to use
 
-Download the file shim.vim and copy it to `~/.vim/syntax/sh.vim`. Any shell files you open should now use SHIM's highlighting.
+Download the file shim.vim and copy it to `~/.vim/syntax/sh.vim`. Any shell files you open should now use SHIM's highlighting. No plugins required!
 
 
 
@@ -37,7 +37,9 @@ While the highlighter works fine with my code, I cannot ensure that for everyone
 
 Particularly the following areas are challenging and/or cannot be correctly implemented:
 - Escaped spaces `\ `
-- Command substitution using backticks `\``, especially when nested
+- Command substitution using backticks, especially when nested
+
+Note that the color scheme is quite different to the standard bash highlighter. I have tuned the colors to subjectively "look good" in my terminal vim, so if you find something not looking right in graphical VIM, feel free to suggest improvements.
 
 
 
