@@ -151,7 +151,7 @@ syn region	shimRedirDefault	start="\%(<<\@!\|>\{1,2\}\)"	end="&\?\s*"	nextgroup=
 "
 " ShimRedirTarget: The redirection target (stream number or filename)
 "   shimRedirTarget  -> Constant (red)
-syn region	shimRedirTarget		contained	start=""	end="\s\@="	contains=@shimCommandPart
+syn region	shimRedirTarget		contained	start=""	end="\_s\@="	contains=@shimCommandPart
 
 
 " |-> here documents {{{1
@@ -202,15 +202,15 @@ syn cluster shimExpansionInStr	contains=@shimVarExp,@shimCmdSub,@shimMathExpr
 " | |-> quotes and escapes {{{1
 " =============================
 syn cluster shimEscape		contains=shimEscape,shimEscapeNewl
-syn cluster shimInDqString	contains=shimEscapeVar,shimEscapeNewl,@shimExpansionInStr
+syn cluster shimInDqString	contains=shimInnerEscape,shimEscapeNewl,@shimExpansionInStr
 
 " ShimEscape: An escaped character, outside of a double-quoted string
 "   shimEscape -> SpecialChar (purple)
-syn match	shimEscape		contained	extend	"\\."
+syn match	shimEscape		contained	extend	"\\."he=e-1
 
-" ShimEscapeVar: An escaped \ $ ` inside a double-quoted string
-"   shimEscapeVar -> SpecialChar (purple)
-syn match	shimEscapeVar	contained	extend	"\\[\\$`]"
+" ShimInnerEscape: An escaped \ $ ` " inside a double-quoted string
+"   shimInnerEscape -> SpecialChar (purple)
+syn match	shimInnerEscape	contained	extend	"\\[\\$`"]"he=e-1
 
 " ShimEscapeNewl: An escaped newline character, continuing the
 " command on the next line
@@ -675,8 +675,8 @@ hi def link shimHereDocDqText		shimDqString
 hi def link shimHereDocSqText		shimSqString
 
 " Strings
-hi def link shimEscape				SpecialChar
-hi def link shimEscapeVar			SpecialChar
+hi def link shimEscape				Comment
+hi def link shimInnerEscape			Comment
 hi def link shimEscapeNewl			Type
 hi def link shimSqString			Normal
 hi def link shimDqString			Normal

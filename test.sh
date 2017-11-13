@@ -111,7 +111,8 @@ TEXT1
 
 # Assignments
 
-str="Some string"; MY_ENVIRONMENT_VARIABLE=default make --debug;
+str=\"some\"
+str="Some string \" with inner quotes \""; MY_ENVIRONMENT_VARIABLE=default make --debug;
 
 # Array
 array=( This is
@@ -146,6 +147,7 @@ ls # stuff)
 )# # Note that the # belongs to the string started by the $( ... )
 
 # Brace expansions
+exec 2>/dev/null
 echo {a,"b c"}			# Should be interpreted as brace expansion
 echo {a,b\ ,c}			# Same here
 echo {a,b ,c}			# Should be interpreted as literal
@@ -170,6 +172,7 @@ echo $((arr[0]+2))
 if ! [[ thisfile -nt thatfile ]]; then
     [[ !(-z $var&&${PATH} =~ /bin) ]] && { mkdir target; ! cp -rn -- -n -- .file target/; }
 fi
+[[ somestring123 =~ [[:alpha:]] ]]
 
 ###############
 #   BLOCKS    #
